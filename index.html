@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>現代碼錶</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['Courier New', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        /* Custom scrollbar for lap times */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 25px rgba(59, 130, 246, 0.3); }
+            50% { box-shadow: 0 0 45px rgba(59, 130, 246, 0.6); }
+        }
+
+        .running-glow {
+            animation: pulseGlow 2s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between selection:bg-blue-500 selection:text-white font-sans">
+
+    <header class="w-full py-6 px-6 flex justify-between items-center max-w-4xl mx-auto">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shadow-inner">
+                <i class="fa-solid fa-stopwatch text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-blue-400 to-indigo-300 bg-clip-text text-transparent">Chronos</h1>
+                <p class="text-xs text-slate-400">精準碼錶與計圈工具</p>
+            </div>
+        </div>
+        <button id="themeToggle" class="w-10 h-10 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition hover:bg-slate-800">
+            <i class="fa-solid fa-moon"></i>
+        </button>
+    </header>
+
+    <main class="flex-1 flex flex-col items-center justify-center px-4 py-8 max-w-2xl w-full mx-auto">
+        
+        <!-- Timer Display Card -->
+        <div id="timerCard" class="relative w-full bg-slate-900/80 backdrop-blur-xl border border-slate-800/80 rounded-3xl p-8 sm:p-12 shadow-2xl flex flex-col items-center transition-all duration-300">
+            
+            <!-- Status Badge -->
+            <div class="mb-6 flex items-center space-x-2 bg-slate-800/60 px-4 py-1.5 rounded-full border border-slate-700/50">
+                <span id="statusDot" class="w-2.5 h-2.5 rounded-full bg-slate-500 transition-colors duration-300"></span>
+                <span id="statusText" class="text-xs font-medium tracking-wide uppercase text-slate-400">就緒</span>
+            </div>
+
+            <!-- Time Display -->
+            <div class="flex items-baseline justify-center font-mono tracking-tighter select-none my-2">
+                <div class="flex flex-col items-center">
+                    <span id="minutes" class="text-6xl sm:text-8xl font-bold text-white drop-shadow-md">00</span>
+                    <span class="text-[10px] sm:text-xs text-slate-400 uppercase tracking-widest mt-1">分</span>
+                </div>
+                <span class="text-5xl sm:text-7xl font-bold text-slate-600 mx-1 sm:mx-2 pb-4">:</span>
+                <div class="flex flex-col items-center">
+                    <span id="seconds" class="text-6xl sm:text-8xl font-bold text-white drop-shadow-md">00</span>
+                    <span class="text-[10px] sm:text-xs text-slate-400 uppercase tracking-widest mt-1">秒</span>
+                </div>
+                <span class="text-4xl sm:text-6xl font-bold text-slate-600 mx-1 sm:mx-2 pb-4">.</span>
+                <div class="flex flex-col items-center w-24 sm:w-36">
+                    <span id="milliseconds" class="text-4xl sm:text-6xl font-bold text-blue-400 drop-shadow-md text-left">00</span>
+                    <span class="text-[10px] sm:text-xs text-slate-400 uppercase tracking-widest mt-1 self-start ml-2">毫秒</span>
+                </div>
+            </div>
+
+            <!-- Control Buttons -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 w-full mt-10">
+                <button id="lapResetBtn" class="flex items-center justify-center space-x-2 py-4 px-6 rounded-2xl font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all duration-200 active:scale-95 border border-slate-700/50 shadow-md disabled:opacity-40 disabled:cursor-not-allowed" disabled>
+                    <i class="fa-solid fa-rotate-right text-sm"></i>
+                    <span id="lapResetText">重設</span>
+                </button>
+                
+                <button id="startPauseBtn" class="col-span-1 sm:col-span-2 flex items-center justify-center space-x-2 py-4 px-8 rounded-2xl font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-all duration-200 active:scale-95 shadow-lg shadow-blue-600/30 border border-blue-500/50">
+                    <i id="startPauseIcon" class="fa-solid fa-play text-sm"></i>
+                    <span id="startPauseText">開始</span>
+                </button>
+            </div>
+        </div>
+
+        <div id="lapContainer" class="w-full mt-8 hidden flex-col">
+            <div class="flex justify-between items-center mb-3 px-2">
+                <h3 class="text-sm font-semibold text-slate-400 tracking-wider uppercase flex items-center gap-2">
+                    <i class="fa-solid fa-flag-checkered text-blue-400"></i> 計圈紀錄
+                </h3>
+                <button id="clearLapsBtn" class="text-xs text-slate-400 hover:text-red-400 transition-colors">清除全部</button>
+            </div>
+            
+            <div class="bg-slate-900/60 backdrop-blur-md border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl max-h-64 overflow-y-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-800/80 text-xs font-medium text-slate-400 bg-slate-900/80 sticky top-0">
+                            <th class="py-3 px-4">圈數</th>
+                            <th class="py-3 px-4">總計時間</th>
+                            <th class="py-3 px-4 text-right">分段時間</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lapsList" class="divide-y divide-slate-800/40 text-sm font-mono">
+                        <!-- Laps injected dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="py-6 text-center text-xs text-slate-500">
+        <p>&copy; 2026 現代專業碼錶應用程式. 保留所有權利.</p>
+    </footer>
+
+    <!-- Custom Notification Toast -->
+    <div id="toast" class="fixed bottom-6 right-6 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 border border-slate-700 text-slate-200 px-4 py-3 rounded-xl shadow-2xl flex items-center space-x-3 z-50">
+        <i id="toastIcon" class="fa-solid fa-circle-info text-blue-400"></i>
+        <span id="toastMessage" class="text-sm">提示訊息</span>
+    </div>
+
+    <script>
+        let startTime = 0;
+        let elapsedTime = 0;
+        let timerInterval = null;
+        let isRunning = false;
+        let laps = [];
+        let lastLapTime = 0;
+
+        // DOM Elements
+        const minutesEl = document.getElementById('minutes');
+        const secondsEl = document.getElementById('seconds');
+        const millisecondsEl = document.getElementById('milliseconds');
+        const startPauseBtn = document.getElementById('startPauseBtn');
+        const startPauseText = document.getElementById('startPauseText');
+        const startPauseIcon = document.getElementById('startPauseIcon');
+        const lapResetBtn = document.getElementById('lapResetBtn');
+        const lapResetText = document.getElementById('lapResetText');
+        const timerCard = document.getElementById('timerCard');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const lapContainer = document.getElementById('lapContainer');
+        const lapsList = document.getElementById('lapsList');
+        const clearLapsBtn = document.getElementById('clearLapsBtn');
+        const themeToggle = document.getElementById('themeToggle');
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toastMessage');
+
+        // Helper: Format time components
+        function formatTime(time) {
+            const min = Math.floor(time / 60000);
+            const sec = Math.floor((time % 60000) / 1000);
+            const ms = Math.floor((time % 1000) / 10);
+
+            return {
+                minutes: String(min).padStart(2, '0'),
+                seconds: String(sec).padStart(2, '0'),
+                milliseconds: String(ms).padStart(2, '0')
+            };
+        }
+
+        // Update UI Display
+        function updateDisplay(time) {
+            const formatted = formatTime(time);
+            minutesEl.textContent = formatted.minutes;
+            secondsEl.textContent = formatted.seconds;
+            millisecondsEl.textContent = formatted.milliseconds;
+        }
+
+        // Show toast notification
+        function showToast(message, type = 'info') {
+            toastMessage.textContent = message;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2500);
+        }
+
+        function startTimer() {
+            startTime = Date.now() - elapsedTime;
+            timerInterval = setInterval(() => {
+                elapsedTime = Date.now() - startTime;
+                updateDisplay(elapsedTime);
+            }, 10); // Update every 10ms for smooth millisecond display
+
+            isRunning = true;
+            
+            // Update button states & visual styling
+            startPauseText.textContent = '暫停';
+            startPauseIcon.className = 'fa-solid fa-pause text-sm';
+            startPauseBtn.className = 'col-span-1 sm:col-span-2 flex items-center justify-center space-x-2 py-4 px-8 rounded-2xl font-semibold bg-amber-600 hover:bg-amber-500 text-white transition-all duration-200 active:scale-95 shadow-lg shadow-amber-600/30 border border-amber-500/50';
+            
+            lapResetText.textContent = '計圈';
+            lapResetBtn.disabled = false;
+
+            timerCard.classList.add('running-glow', 'border-blue-500/40');
+            statusDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse';
+            statusText.textContent = '計時中';
+            statusText.className = 'text-xs font-medium tracking-wide uppercase text-emerald-400';
+        }
+
+        function pauseTimer() {
+            clearInterval(timerInterval);
+            isRunning = false;
+
+            startPauseText.textContent = '繼續';
+            startPauseIcon.className = 'fa-solid fa-play text-sm';
+            startPauseBtn.className = 'col-span-1 sm:col-span-2 flex items-center justify-center space-x-2 py-4 px-8 rounded-2xl font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-all duration-200 active:scale-95 shadow-lg shadow-blue-600/30 border border-blue-500/50';
+
+            lapResetText.textContent = '重設';
+            
+            timerCard.classList.remove('running-glow', 'border-blue-500/40');
+            statusDot.className = 'w-2.5 h-2.5 rounded-full bg-amber-500';
+            statusText.textContent = '已暫停';
+            statusText.className = 'text-xs font-medium tracking-wide uppercase text-amber-400';
+        }
+
+        function recordLap() {
+            if (!isRunning) return;
+
+            const currentLapTime = elapsedTime - lastLapTime;
+            const lapData = {
+                lapNumber: laps.length + 1,
+                totalTime: elapsedTime,
+                lapTime: currentLapTime
+            };
+
+            laps.unshift(lapData); // Add latest lap on top
+            lastLapTime = elapsedTime;
+            renderLaps();
+            showToast(`已記錄第 ${lapData.lapNumber} 圈`);
+        }
+
+        function resetTimer() {
+            clearInterval(timerInterval);
+            isRunning = false;
+            elapsedTime = 0;
+            lastLapTime = 0;
+            laps = [];
+            
+            updateDisplay(0);
+            renderLaps();
+
+            startPauseText.textContent = '開始';
+            startPauseIcon.className = 'fa-solid fa-play text-sm';
+            startPauseBtn.className = 'col-span-1 sm:col-span-2 flex items-center justify-center space-x-2 py-4 px-8 rounded-2xl font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-all duration-200 active:scale-95 shadow-lg shadow-blue-600/30 border border-blue-500/50';
+
+            lapResetText.textContent = '重設';
+            lapResetBtn.disabled = true;
+
+            timerCard.classList.remove('running-glow', 'border-blue-500/40');
+            statusDot.className = 'w-2.5 h-2.5 rounded-full bg-slate-500';
+            statusText.textContent = '就緒';
+            statusText.className = 'text-xs font-medium tracking-wide uppercase text-slate-400';
+        }
+
+        function renderLaps() {
+            if (laps.length === 0) {
+                lapContainer.classList.add('hidden');
+                lapsList.innerHTML = '';
+                return;
+            }
+
+            lapContainer.classList.remove('hidden');
+            lapContainer.classList.add('flex');
+
+            // Find fastest and slowest laps if more than 2 laps
+            let fastestLap = null;
+            let slowestLap = null;
+
+            if (laps.length > 1) {
+                const lapTimes = laps.map(l => l.lapTime);
+                const minTime = Math.min(...lapTimes);
+                const maxTime = Math.max(...lapTimes);
+                fastestLap = minTime;
+                slowestLap = maxTime;
+            }
+
+            lapsList.innerHTML = laps.map((lap, index) => {
+                const totalFormatted = formatTime(lap.totalTime);
+                const lapFormatted = formatTime(lap.lapTime);
+                
+                let highlightClass = '';
+                let badgeHtml = '';
+                if (laps.length > 1) {
+                    if (lap.lapTime === fastestLap) {
+                        highlightClass = 'bg-emerald-950/30 text-emerald-300';
+                        badgeHtml = '<span class="ml-2 text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/30">最快</span>';
+                    } else if (lap.lapTime === slowestLap) {
+                        highlightClass = 'bg-rose-950/30 text-rose-300';
+                        badgeHtml = '<span class="ml-2 text-[10px] bg-rose-500/20 text-rose-400 px-1.5 py-0.5 rounded border border-rose-500/30">最慢</span>';
+                    }
+                }
+
+                return `
+                    <tr class="border-b border-slate-800/40 hover:bg-slate-800/30 transition-colors ${highlightClass}">
+                        <td class="py-3 px-4 text-slate-400 font-medium">#${lap.lapNumber}${badgeHtml}</td>
+                        <td class="py-3 px-4 text-white">${totalFormatted.minutes}:${totalFormatted.seconds}.${totalFormatted.milliseconds}</td>
+                        <td class="py-3 px-4 text-right text-slate-300">+${lapFormatted.minutes}:${lapFormatted.seconds}.${lapFormatted.milliseconds}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Event Listeners
+        startPauseBtn.addEventListener('click', () => {
+            if (!isRunning) {
+                startTimer();
+            } else {
+                pauseTimer();
+            }
+        });
+
+        lapResetBtn.addEventListener('click', () => {
+            if (isRunning) {
+                recordLap();
+            } else {
+                resetTimer();
+            }
+        });
+
+        clearLapsBtn.addEventListener('click', () => {
+            laps = [];
+            lastLapTime = elapsedTime; // Reset lap split anchor
+            renderLaps();
+            showToast('已清除所有計圈紀錄');
+        });
+
+        // Theme Toggle (Dark / Light mode switcher simulation or enhancement)
+        let isDarkMode = true;
+        themeToggle.addEventListener('click', () => {
+            isDarkMode = !isDarkMode;
+            if (isDarkMode) {
+                document.documentElement.classList.add('dark');
+                document.body.className = 'bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between selection:bg-blue-500 selection:text-white font-sans';
+                themeToggle.innerHTML = '<i class="fa-solid fa-moon"></i>';
+            } else {
+                document.documentElement.classList.remove('dark');
+                document.body.className = 'bg-slate-100 text-slate-900 min-h-screen flex flex-col justify-between selection:bg-blue-500 selection:text-white font-sans';
+                themeToggle.innerHTML = '<i class="fa-solid fa-sun"></i>';
+            }
+        });
+
+        // Keyboard shortcuts for convenience
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (!isRunning) {
+                    startTimer();
+                } else {
+                    pauseTimer();
+                }
+            } else if (e.code === 'KeyL' && isRunning) {
+                recordLap();
+            } else if (e.code === 'KeyR' && !isRunning && elapsedTime > 0) {
+                resetTimer();
+            }
+        });
+    </script>
+</body>
+</html>
